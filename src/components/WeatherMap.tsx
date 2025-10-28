@@ -23,29 +23,54 @@ const WeatherMap = ({ onLocationSelect, currentLocation }: WeatherMapProps) => {
     const map = L.map(mapContainer.current).setView([20.5937, 78.9629], 5);
     mapRef.current = map;
 
-    // Add dark base layer
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-      attribution: '© OpenStreetMap contributors, © CARTO',
+    // Add terrain base layer with labels
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '© OpenStreetMap contributors',
       maxZoom: 18,
+      opacity: 0.8
     }).addTo(map);
 
-    // Add Indian Satellite imagery overlay (INSAT-3D IR channel)
-    // This shows actual cloud formations over India
-    const satelliteOverlay = L.imageOverlay(
-      'https://mausam.imd.gov.in/Satellite/3Dasiasec_ir1.jpg',
-      [[0, 40], [40, 120]], // Bounds for India region
-      {
-        opacity: 0.7,
-        attribution: 'India Meteorological Department (IMD)'
+    // Add RainViewer radar layer - shows color-coded precipitation
+    // This provides the colorful radar view similar to your reference
+    let radarLayer: L.TileLayer | null = null;
+    
+    const loadRadarLayer = async () => {
+      try {
+        // Get available radar timestamps
+        const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
+        const data = await response.json();
+        
+        if (data.radar && data.radar.past && data.radar.past.length > 0) {
+          // Get the most recent radar frame
+          const latestTimestamp = data.radar.past[data.radar.past.length - 1].path;
+          
+          // Remove old layer if exists
+          if (radarLayer) {
+            map.removeLayer(radarLayer);
+          }
+          
+          // Add new radar layer with color-coded precipitation
+          radarLayer = L.tileLayer(
+            `https://tilecache.rainviewer.com${latestTimestamp}/512/{z}/{x}/{y}/6/1_1.png`,
+            {
+              attribution: 'RainViewer.com',
+              opacity: 0.7,
+              maxZoom: 18,
+            }
+          );
+          radarLayer.addTo(map);
+        }
+      } catch (error) {
+        console.error('Error loading radar:', error);
       }
-    );
-    satelliteOverlay.addTo(map);
+    };
 
-    // Refresh satellite image every 30 seconds
+    loadRadarLayer();
+    
+    // Refresh radar every 2 minutes
     const refreshInterval = setInterval(() => {
-      const timestamp = new Date().getTime();
-      satelliteOverlay.setUrl(`https://mausam.imd.gov.in/Satellite/3Dasiasec_ir1.jpg?t=${timestamp}`);
-    }, 30000);
+      loadRadarLayer();
+    }, 120000);
 
     // Handle map clicks
     map.on("click", async (e: L.LeafletMouseEvent) => {
@@ -145,7 +170,7 @@ const WeatherMap = ({ onLocationSelect, currentLocation }: WeatherMapProps) => {
           <div>
             <CardTitle className="text-2xl">Interactive Weather Map</CardTitle>
             <CardDescription>
-              Click anywhere on the map to get real-time weather predictions with satellite cloud overlay
+              Click anywhere on the map to get real-time weather predictions • Color radar shows precipitation intensity
             </CardDescription>
           </div>
           <Button
@@ -174,7 +199,7 @@ const WeatherMap = ({ onLocationSelect, currentLocation }: WeatherMapProps) => {
           style={{ background: '#1a1a1a' }}
         />
         <p className="text-xs text-muted-foreground mt-2">
-          Real-time INSAT-3D satellite imagery showing actual cloud formations over India • Updates every 30 seconds
+          Color-coded radar showing precipitation intensity • Blue (light rain) → Green/Yellow (moderate) → Orange/Red (heavy) • Updates every 2 minutes
         </p>
       </CardContent>
     </Card>
