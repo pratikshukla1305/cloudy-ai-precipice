@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Cloud, Droplets, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { Cloud, Droplets, AlertTriangle, TrendingUp, TrendingDown, CloudRain } from "lucide-react";
 
 interface ForecastData {
   humidity: number;
