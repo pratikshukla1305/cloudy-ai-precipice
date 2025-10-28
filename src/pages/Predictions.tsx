@@ -1,25 +1,41 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import WeatherMap from "@/components/WeatherMap";
+import ForecastSection from "@/components/ForecastSection";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Cloud, Droplets, Wind, Gauge, ThermometerSun, Eye } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const WEATHER_API_KEY = "528364a20a4ccb50c02541e94890b7fa";
-const WEATHER_API_URL = "http://api.weatherstack.com/current";
+const WEATHER_API_URL = "https://api.weatherstack.com/current";
 
 const Predictions = () => {
+  const [selectedLocation, setSelectedLocation] = useState<{
+    lat: number;
+    lon: number;
+    name: string;
+  } | null>(null);
+
   const { data: weatherData, isLoading } = useQuery({
-    queryKey: ["weather"],
+    queryKey: ["weather", selectedLocation],
     queryFn: async () => {
-      // Default to New Delhi for demo
+      const query = selectedLocation 
+        ? `${selectedLocation.lat},${selectedLocation.lon}`
+        : "New Delhi";
+      
       const response = await fetch(
-        `${WEATHER_API_URL}?access_key=${WEATHER_API_KEY}&query=New Delhi`
+        `${WEATHER_API_URL}?access_key=${WEATHER_API_KEY}&query=${query}`
       );
       if (!response.ok) throw new Error("Failed to fetch weather data");
       return response.json();
     },
   });
+
+  const handleLocationSelect = (lat: number, lon: number, locationName: string) => {
+    setSelectedLocation({ lat, lon, name: locationName });
+  };
 
   const metrics = [
     {
@@ -82,14 +98,20 @@ const Predictions = () => {
                 </span>
               </h1>
               <p className="text-xl text-muted-foreground">
-                Live atmospheric data and cloudburst risk assessment
+                Live atmospheric data and cloudburst risk assessment with satellite imagery
               </p>
               {weatherData?.location && (
                 <p className="text-sm text-muted-foreground">
-                  Location: {weatherData.location.name}, {weatherData.location.country}
+                  Current Location: {selectedLocation?.name || `${weatherData.location.name}, ${weatherData.location.country}`}
                 </p>
               )}
             </div>
+
+            {/* Interactive Map */}
+            <WeatherMap 
+              onLocationSelect={handleLocationSelect}
+              currentLocation={selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : undefined}
+            />
 
             {/* Weather Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -123,10 +145,24 @@ const Predictions = () => {
               ))}
             </div>
 
+            {/* AI Forecast Prediction */}
+            {weatherData?.current && !isLoading && (
+              <ForecastSection 
+                data={{
+                  humidity: weatherData.current.humidity,
+                  pressure: weatherData.current.pressure,
+                  cloudcover: weatherData.current.cloudcover,
+                  precip: weatherData.current.precip,
+                  temperature: weatherData.current.temperature,
+                }}
+                locationName={selectedLocation?.name || `${weatherData.location.name}, ${weatherData.location.country}`}
+              />
+            )}
+
             {/* Current Conditions */}
             <Card className="border-primary/20 bg-card/50 backdrop-blur-sm animate-fade-in">
               <CardHeader>
-                <CardTitle className="text-2xl">Current Conditions</CardTitle>
+                <CardTitle className="text-2xl">Current Atmospheric Conditions</CardTitle>
                 <CardDescription>
                   Detailed weather analysis for cloudburst prediction
                 </CardDescription>
