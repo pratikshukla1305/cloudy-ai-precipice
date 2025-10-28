@@ -1,0 +1,4 @@
+project_id = "rokdapsozzsuigazkjzu"
+
+[functions.analyze-cloudburst]
+verify_jwt = false

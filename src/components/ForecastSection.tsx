@@ -11,11 +11,40 @@ interface ForecastData {
 }
 
 interface ForecastSectionProps {
-  data: ForecastData;
+  data?: ForecastData;
   locationName: string;
+  aiAnalysis?: string;
 }
 
-const ForecastSection = ({ data, locationName }: ForecastSectionProps) => {
+const ForecastSection = ({ data, locationName, aiAnalysis }: ForecastSectionProps) => {
+  // If AI analysis is provided, display it instead of calculated risk
+  if (aiAnalysis) {
+    return (
+      <Card className="border-primary/20 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CloudRain className="h-6 w-6 text-primary" />
+              <CardTitle className="text-2xl">AI Cloudburst Analysis</CardTitle>
+            </div>
+          </div>
+          <CardDescription>
+            Real-time satellite image analysis powered by AI vision • {locationName}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <div className="whitespace-pre-wrap text-foreground/90">
+              {aiAnalysis}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Original calculated risk display
+  if (!data) return null;
   // Calculate cloudburst risk based on multiple factors
   const calculateCloudburstRisk = () => {
     let riskScore = 0;

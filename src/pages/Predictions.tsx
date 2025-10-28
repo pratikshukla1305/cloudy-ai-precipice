@@ -17,6 +17,7 @@ const Predictions = () => {
     lon: number;
     name: string;
   } | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<{ text: string; location: string } | null>(null);
 
   const { data: weatherData, isLoading } = useQuery({
     queryKey: ["weather", selectedLocation],
@@ -35,6 +36,11 @@ const Predictions = () => {
 
   const handleLocationSelect = (lat: number, lon: number, locationName: string) => {
     setSelectedLocation({ lat, lon, name: locationName });
+    setAiAnalysis(null); // Clear AI analysis when selecting new location
+  };
+
+  const handleImageAnalysis = (analysis: string, location?: string) => {
+    setAiAnalysis({ text: analysis, location: location || 'Unknown Location' });
   };
 
   const metrics = [
@@ -108,10 +114,11 @@ const Predictions = () => {
             </div>
 
             {/* Interactive Map */}
-            <WeatherMap 
-              onLocationSelect={handleLocationSelect}
-              currentLocation={selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : undefined}
-            />
+          <WeatherMap 
+            onLocationSelect={handleLocationSelect}
+            onImageAnalysis={handleImageAnalysis}
+            currentLocation={selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : undefined}
+          />
 
             {/* Weather Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -146,18 +153,17 @@ const Predictions = () => {
             </div>
 
             {/* AI Forecast Prediction */}
-            {weatherData?.current && !isLoading && (
-              <ForecastSection 
-                data={{
-                  humidity: weatherData.current.humidity,
-                  pressure: weatherData.current.pressure,
-                  cloudcover: weatherData.current.cloudcover,
-                  precip: weatherData.current.precip,
-                  temperature: weatherData.current.temperature,
-                }}
-                locationName={selectedLocation?.name || `${weatherData.location.name}, ${weatherData.location.country}`}
-              />
-            )}
+            <ForecastSection 
+              data={weatherData?.current ? {
+                humidity: weatherData.current.humidity,
+                pressure: weatherData.current.pressure,
+                cloudcover: weatherData.current.cloudcover,
+                precip: weatherData.current.precip,
+                temperature: weatherData.current.temperature,
+              } : undefined}
+              locationName={aiAnalysis?.location || selectedLocation?.name || (weatherData?.location ? `${weatherData.location.name}, ${weatherData.location.country}` : "New Delhi")}
+              aiAnalysis={aiAnalysis?.text}
+            />
 
             {/* Current Conditions */}
             <Card className="border-primary/20 bg-card/50 backdrop-blur-sm animate-fade-in">

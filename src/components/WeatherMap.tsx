@@ -3,18 +3,26 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, MapPin } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, MapPin, Camera, Upload } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import html2canvas from "html2canvas";
 
 interface WeatherMapProps {
   onLocationSelect: (lat: number, lon: number, locationName: string) => void;
+  onImageAnalysis?: (analysis: string, location?: string) => void;
   currentLocation?: { lat: number; lon: number };
 }
 
-const WeatherMap = ({ onLocationSelect, currentLocation }: WeatherMapProps) => {
+const WeatherMap = ({ onLocationSelect, onImageAnalysis, currentLocation }: WeatherMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
@@ -72,9 +80,12 @@ const WeatherMap = ({ onLocationSelect, currentLocation }: WeatherMapProps) => {
       loadRadarLayer();
     }, 120000);
 
-    // Handle map clicks
+    // Handle map clicks - capture screenshot and analyze
     map.on("click", async (e: L.LeafletMouseEvent) => {
       const { lat, lng } = e.latlng;
+      
+      // Capture map screenshot for analysis
+      captureAndAnalyzeMap(lat, lng);
       
       // Add or update marker
       if (markerRef.current) {
@@ -163,43 +174,229 @@ const WeatherMap = ({ onLocationSelect, currentLocation }: WeatherMapProps) => {
     }
   };
 
+  const captureAndAnalyzeMap = async (lat?: number, lng?: number) => {
+    if (!mapContainer.current) return;
+    
+    setIsAnalyzing(true);
+    try {
+      toast({
+        title: "Capturing Image",
+        description: "Taking screenshot of the map for analysis...",
+      });
+
+      // Capture the map as an image
+      const canvas = await html2canvas(mapContainer.current, {
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      });
+
+      const imageBase64 = canvas.toDataURL('image/png');
+      
+      // Get location name if coordinates provided
+      let locationName = '';
+      if (lat && lng) {
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+          );
+          const data = await response.json();
+          locationName = data.display_name || `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+        } catch (error) {
+          console.error("Geocoding error:", error);
+          locationName = `${lat.toFixed(2)}, ${lng.toFixed(2)}`;
+        }
+      }
+
+      toast({
+        title: "Analyzing Image",
+        description: "AI is analyzing the weather patterns...",
+      });
+
+      // Send to edge function for AI analysis
+      const { data, error } = await supabase.functions.invoke('analyze-cloudburst', {
+        body: { imageBase64, location: locationName }
+      });
+
+      if (error) {
+        console.error('Analysis error:', error);
+        toast({
+          title: "Analysis Failed",
+          description: error.message || "Failed to analyze the image",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data?.analysis) {
+        toast({
+          title: "Analysis Complete",
+          description: "Cloudburst prediction generated successfully",
+        });
+        onImageAnalysis?.(data.analysis, data.location);
+      }
+    } catch (error) {
+      console.error('Capture error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to capture or analyze the map",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleManualUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      toast({
+        title: "Processing Image",
+        description: "Preparing image for analysis...",
+      });
+
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const imageBase64 = e.target?.result as string;
+
+        toast({
+          title: "Analyzing Image",
+          description: "AI is analyzing the weather patterns...",
+        });
+
+        const { data, error } = await supabase.functions.invoke('analyze-cloudburst', {
+          body: { imageBase64, location: 'Uploaded Image' }
+        });
+
+        if (error) {
+          console.error('Analysis error:', error);
+          toast({
+            title: "Analysis Failed",
+            description: error.message || "Failed to analyze the image",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (data?.analysis) {
+          toast({
+            title: "Analysis Complete",
+            description: "Cloudburst prediction generated successfully",
+          });
+          onImageAnalysis?.(data.analysis, data.location);
+        }
+        
+        setIsAnalyzing(false);
+      };
+
+      reader.onerror = () => {
+        toast({
+          title: "Error",
+          description: "Failed to read the image file",
+          variant: "destructive",
+        });
+        setIsAnalyzing(false);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to process the image",
+        variant: "destructive",
+      });
+      setIsAnalyzing(false);
+    }
+  };
+
   return (
     <Card className="border-primary/20 bg-card/50 backdrop-blur-sm">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <CardTitle className="text-2xl">Interactive Weather Map</CardTitle>
+            <CardTitle className="text-2xl">AI-Powered Cloudburst Analysis</CardTitle>
             <CardDescription>
-              Click anywhere on the map to get real-time weather predictions • Color radar shows precipitation intensity
+              Click on the map to capture and analyze weather patterns • Upload your own satellite images
             </CardDescription>
           </div>
-          <Button
-            onClick={handleGetCurrentLocation}
-            disabled={isLoadingLocation}
-            className="bg-gradient-to-r from-primary to-primary-glow hover:opacity-90"
-          >
-            {isLoadingLocation ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Getting Location...
-              </>
-            ) : (
-              <>
-                <MapPin className="mr-2 h-4 w-4" />
-                Use My Location
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              onClick={handleGetCurrentLocation}
+              disabled={isLoadingLocation || isAnalyzing}
+              variant="outline"
+              size="sm"
+            >
+              {isLoadingLocation ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Getting...
+                </>
+              ) : (
+                <>
+                  <MapPin className="mr-2 h-4 w-4" />
+                  My Location
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isAnalyzing}
+              variant="outline"
+              size="sm"
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Image
+            </Button>
+            <Button
+              onClick={() => captureAndAnalyzeMap()}
+              disabled={isAnalyzing}
+              className="bg-gradient-to-r from-primary to-primary-glow hover:opacity-90"
+              size="sm"
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <Camera className="mr-2 h-4 w-4" />
+                  Analyze Current View
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
+        <Input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleManualUpload}
+          className="hidden"
+        />
         <div 
           ref={mapContainer} 
           className="w-full h-[500px] rounded-lg overflow-hidden border border-primary/20"
           style={{ background: '#1a1a1a' }}
         />
         <p className="text-xs text-muted-foreground mt-2">
-          Color-coded radar showing precipitation intensity • Blue (light rain) → Green/Yellow (moderate) → Orange/Red (heavy) • Updates every 2 minutes
+          Click anywhere to analyze that area • Color radar: Blue (light) → Green/Yellow (moderate) → Orange/Red (heavy) • AI analyzes cloud patterns for cloudburst risk
         </p>
       </CardContent>
     </Card>
