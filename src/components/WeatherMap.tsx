@@ -23,33 +23,29 @@ const WeatherMap = ({ onLocationSelect, currentLocation }: WeatherMapProps) => {
     const map = L.map(mapContainer.current).setView([20.5937, 78.9629], 5);
     mapRef.current = map;
 
-    // Add OpenStreetMap base layer
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '© OpenStreetMap contributors',
+    // Add dark base layer
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: '© OpenStreetMap contributors, © CARTO',
       maxZoom: 18,
     }).addTo(map);
 
-    // Add satellite/cloud layer from OpenWeatherMap
-    const cloudLayer = L.tileLayer(
-      `https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=c1f861d04e5dbbd970b4814bf353a3d6`,
+    // Add Indian Satellite imagery overlay (INSAT-3D IR channel)
+    // This shows actual cloud formations over India
+    const satelliteOverlay = L.imageOverlay(
+      'https://mausam.imd.gov.in/Satellite/3Dasiasec_ir1.jpg',
+      [[0, 40], [40, 120]], // Bounds for India region
       {
-        attribution: 'Weather data © OpenWeatherMap',
-        opacity: 0.6,
-        maxZoom: 18,
+        opacity: 0.7,
+        attribution: 'India Meteorological Department (IMD)'
       }
     );
-    cloudLayer.addTo(map);
+    satelliteOverlay.addTo(map);
 
-    // Add precipitation layer
-    const precipLayer = L.tileLayer(
-      `https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=c1f861d04e5dbbd970b4814bf353a3d6`,
-      {
-        attribution: 'Weather data © OpenWeatherMap',
-        opacity: 0.5,
-        maxZoom: 18,
-      }
-    );
-    precipLayer.addTo(map);
+    // Refresh satellite image every 30 seconds
+    const refreshInterval = setInterval(() => {
+      const timestamp = new Date().getTime();
+      satelliteOverlay.setUrl(`https://mausam.imd.gov.in/Satellite/3Dasiasec_ir1.jpg?t=${timestamp}`);
+    }, 30000);
 
     // Handle map clicks
     map.on("click", async (e: L.LeafletMouseEvent) => {
@@ -84,6 +80,7 @@ const WeatherMap = ({ onLocationSelect, currentLocation }: WeatherMapProps) => {
     });
 
     return () => {
+      clearInterval(refreshInterval);
       map.remove();
       mapRef.current = null;
     };
@@ -177,7 +174,7 @@ const WeatherMap = ({ onLocationSelect, currentLocation }: WeatherMapProps) => {
           style={{ background: '#1a1a1a' }}
         />
         <p className="text-xs text-muted-foreground mt-2">
-          Blue overlay shows cloud coverage • Purple shows precipitation intensity
+          Real-time INSAT-3D satellite imagery showing actual cloud formations over India • Updates every 30 seconds
         </p>
       </CardContent>
     </Card>
