@@ -22,9 +22,11 @@ const Predictions = () => {
   const { data: weatherData, isLoading } = useQuery({
     queryKey: ["weather", selectedLocation],
     queryFn: async () => {
-      const query = selectedLocation 
-        ? `${selectedLocation.lat},${selectedLocation.lon}`
-        : "New Delhi";
+      if (!selectedLocation) {
+        return null; // Don't fetch until location is selected
+      }
+      
+      const query = `${selectedLocation.lat},${selectedLocation.lon}`;
       
       const response = await fetch(
         `${WEATHER_API_URL}?access_key=${WEATHER_API_KEY}&query=${query}`
@@ -32,6 +34,7 @@ const Predictions = () => {
       if (!response.ok) throw new Error("Failed to fetch weather data");
       return response.json();
     },
+    enabled: !!selectedLocation, // Only fetch when location is selected
   });
 
   const handleLocationSelect = (lat: number, lon: number, locationName: string) => {
@@ -98,17 +101,21 @@ const Predictions = () => {
             {/* Header */}
             <div className="text-center space-y-4 animate-fade-in">
               <h1 className="text-4xl md:text-5xl font-bold">
-                Real-Time Weather{" "}
+                Global Weather{" "}
                 <span className="bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
                   Predictions
                 </span>
               </h1>
               <p className="text-xl text-muted-foreground">
-                Live atmospheric data and cloudburst risk assessment with satellite imagery
+                Worldwide real-time atmospheric data and AI-powered cloudburst risk assessment
               </p>
-              {weatherData?.location && (
+              {selectedLocation ? (
                 <p className="text-sm text-muted-foreground">
-                  Current Location: {selectedLocation?.name || `${weatherData.location.name}, ${weatherData.location.country}`}
+                  Selected Location: {selectedLocation.name}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Click on the map to select any location worldwide for analysis
                 </p>
               )}
             </div>
@@ -161,7 +168,7 @@ const Predictions = () => {
                 precip: weatherData.current.precip,
                 temperature: weatherData.current.temperature,
               } : undefined}
-              locationName={aiAnalysis?.location || selectedLocation?.name || (weatherData?.location ? `${weatherData.location.name}, ${weatherData.location.country}` : "New Delhi")}
+              locationName={aiAnalysis?.location || selectedLocation?.name || "Select a location"}
               aiAnalysis={aiAnalysis?.text}
             />
 

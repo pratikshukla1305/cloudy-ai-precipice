@@ -27,8 +27,8 @@ const WeatherMap = ({ onLocationSelect, onImageAnalysis, currentLocation }: Weat
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
-    // Initialize map centered on India
-    const map = L.map(mapContainer.current).setView([20.5937, 78.9629], 5);
+    // Initialize map with global view
+    const map = L.map(mapContainer.current).setView([20, 0], 2);
     mapRef.current = map;
 
     // Add terrain base layer with labels
@@ -328,9 +328,9 @@ const WeatherMap = ({ onLocationSelect, onImageAnalysis, currentLocation }: Weat
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <CardTitle className="text-2xl">AI-Powered Cloudburst Analysis</CardTitle>
+            <CardTitle className="text-2xl">Global Cloudburst Risk Analysis</CardTitle>
             <CardDescription>
-              Click on the map to capture and analyze weather patterns • Upload your own satellite images
+              Click anywhere on the map worldwide to analyze cloud patterns • Real-time satellite imagery
             </CardDescription>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -396,7 +396,7 @@ const WeatherMap = ({ onLocationSelect, onImageAnalysis, currentLocation }: Weat
           style={{ background: '#1a1a1a' }}
         />
         <p className="text-xs text-muted-foreground mt-2">
-          Click anywhere to analyze that area • Color radar: Blue (light) → Green/Yellow (moderate) → Orange/Red (heavy) • AI analyzes cloud patterns for cloudburst risk
+          Global coverage • Click any location worldwide • Color coding: Blue (low risk) → Yellow (moderate) → Red/Orange (high cloudburst risk)
         </p>
       </CardContent>
     </Card>
