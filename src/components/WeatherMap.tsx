@@ -38,46 +38,50 @@ const WeatherMap = ({ onLocationSelect, onImageAnalysis, currentLocation }: Weat
       opacity: 0.8
     }).addTo(map);
 
-    // Add RainViewer radar layer - shows color-coded precipitation
-    // This provides the colorful radar view similar to your reference
-    let radarLayer: L.TileLayer | null = null;
+    // Add satellite infrared layer - shows color-coded cloud formation
+    // Blue/Yellow = Low/Moderate risk, Orange/Red = High risk
+    let cloudLayer: L.TileLayer | null = null;
     
-    const loadRadarLayer = async () => {
+    const loadCloudLayer = async () => {
       try {
-        // Get available radar timestamps
+        // Get available satellite infrared timestamps
         const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
         const data = await response.json();
         
-        if (data.radar && data.radar.past && data.radar.past.length > 0) {
-          // Get the most recent radar frame
-          const latestTimestamp = data.radar.past[data.radar.past.length - 1].path;
+        if (data.satellite && data.satellite.infrared && data.satellite.infrared.length > 0) {
+          // Get the most recent infrared satellite frame
+          const latestTimestamp = data.satellite.infrared[data.satellite.infrared.length - 1].path;
           
           // Remove old layer if exists
-          if (radarLayer) {
-            map.removeLayer(radarLayer);
+          if (cloudLayer) {
+            map.removeLayer(cloudLayer);
           }
           
-          // Add new radar layer with color-coded precipitation
-          radarLayer = L.tileLayer(
-            `https://tilecache.rainviewer.com${latestTimestamp}/512/{z}/{x}/{y}/6/1_1.png`,
+          // Add satellite infrared layer showing cloud formations with risk-based colors
+          // The infrared imagery naturally shows:
+          // - Blue/Cyan: Low-level clouds (low risk)
+          // - Yellow/Green: Mid-level clouds (moderate risk)  
+          // - Orange/Red: High-level storm clouds (high risk)
+          cloudLayer = L.tileLayer(
+            `https://tilecache.rainviewer.com${latestTimestamp}/512/{z}/{x}/{y}/0/0_0.png`,
             {
-              attribution: 'RainViewer.com',
-              opacity: 0.7,
+              attribution: 'RainViewer.com Satellite',
+              opacity: 0.75,
               maxZoom: 18,
             }
           );
-          radarLayer.addTo(map);
+          cloudLayer.addTo(map);
         }
       } catch (error) {
-        console.error('Error loading radar:', error);
+        console.error('Error loading satellite data:', error);
       }
     };
 
-    loadRadarLayer();
+    loadCloudLayer();
     
-    // Refresh radar every 2 minutes
+    // Refresh cloud layer every 2 minutes
     const refreshInterval = setInterval(() => {
-      loadRadarLayer();
+      loadCloudLayer();
     }, 120000);
 
     // Handle map clicks - capture screenshot and analyze
@@ -396,7 +400,7 @@ const WeatherMap = ({ onLocationSelect, onImageAnalysis, currentLocation }: Weat
           style={{ background: '#1a1a1a' }}
         />
         <p className="text-xs text-muted-foreground mt-2">
-          Click anywhere to analyze that area • Color radar: Blue (light) → Green/Yellow (moderate) → Orange/Red (heavy) • AI analyzes cloud patterns for cloudburst risk
+          Click anywhere to analyze that area • Cloud Formation Map: Blue (Low Risk) → Yellow (Moderate Risk) → Orange/Red (High Risk) • AI analyzes patterns for cloudburst prediction
         </p>
       </CardContent>
     </Card>
