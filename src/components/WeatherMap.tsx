@@ -38,42 +38,42 @@ const WeatherMap = ({ onLocationSelect, onImageAnalysis, currentLocation }: Weat
       opacity: 0.8
     }).addTo(map);
 
-    // Add satellite infrared layer - shows color-coded cloud formation
-    // Blue/Yellow = Low/Moderate risk, Orange/Red = High risk
+    // Add color-coded cloud density layer
+    // Blue = Low density (low risk)
+    // Yellow/Green = Moderate density (moderate risk)
+    // Orange/Red = High density (high risk)
     let cloudLayer: L.TileLayer | null = null;
     
     const loadCloudLayer = async () => {
       try {
-        // Get available satellite infrared timestamps
+        // Get available radar data for cloud density visualization
         const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
         const data = await response.json();
         
-        if (data.satellite && data.satellite.infrared && data.satellite.infrared.length > 0) {
-          // Get the most recent infrared satellite frame
-          const latestTimestamp = data.satellite.infrared[data.satellite.infrared.length - 1].path;
+        if (data.radar && data.radar.past && data.radar.past.length > 0) {
+          // Get the most recent radar frame for cloud density
+          const latestTimestamp = data.radar.past[data.radar.past.length - 1].path;
           
           // Remove old layer if exists
           if (cloudLayer) {
             map.removeLayer(cloudLayer);
           }
           
-          // Add satellite infrared layer showing cloud formations with risk-based colors
-          // The infrared imagery naturally shows:
-          // - Blue/Cyan: Low-level clouds (low risk)
-          // - Yellow/Green: Mid-level clouds (moderate risk)  
-          // - Orange/Red: High-level storm clouds (high risk)
+          // Add radar layer with proper color coding for cloud density
+          // Color scheme: 2 = colored (blue→yellow→orange→red based on intensity)
+          // Smooth: 1 = smooth rendering
           cloudLayer = L.tileLayer(
-            `https://tilecache.rainviewer.com${latestTimestamp}/512/{z}/{x}/{y}/0/0_0.png`,
+            `https://tilecache.rainviewer.com${latestTimestamp}/512/{z}/{x}/{y}/2/1_1.png`,
             {
-              attribution: 'RainViewer.com Satellite',
-              opacity: 0.75,
+              attribution: 'RainViewer.com',
+              opacity: 0.8,
               maxZoom: 18,
             }
           );
           cloudLayer.addTo(map);
         }
       } catch (error) {
-        console.error('Error loading satellite data:', error);
+        console.error('Error loading cloud data:', error);
       }
     };
 
